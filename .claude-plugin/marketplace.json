@@ -1,0 +1,14 @@
+{
+  "name": "arch-map",
+  "description": "arch-map: a side pane that draws the architecture of what you're building in Claude Code",
+  "owner": {
+    "name": "Jack Halperin"
+  },
+  "plugins": [
+    {
+      "name": "arch-map",
+      "source": "./",
+      "description": "A side pane that draws the architecture of what you're building, version by version: what changed and why, a request traced through it, a design lesson, design-level security risks, and click-to-explain parts."
+    }
+  ]
+}

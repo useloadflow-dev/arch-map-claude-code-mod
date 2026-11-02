@@ -43,7 +43,7 @@ The pane opens on its own in terminals 144 columns or wider. `/arch` opens it at
 ## Install
 
 ```
-/plugin install arch-map --marketplace useloadflow-dev/session-health-claude-code-mod
+/plugin install arch-map --marketplace useloadflow-dev/arch-map-claude-code-mod
 ```
 
 Answer `y` to add the marketplace, then pick a scope.
@@ -51,8 +51,8 @@ Answer `y` to add the marketplace, then pick a scope.
 ## Development
 
 ```
-claude plugin validate arch-map
-claude plugin test arch-map
+claude plugin validate .
+claude plugin test .
 ```
 
 ## License
