@@ -33,10 +33,12 @@ Added Redis because the list page hit Postgres on every load.
 | Command | What it does |
 |---|---|
 | `/arch` | Show or hide the pane |
+| `/arch-on` | Turn the mod on for this project. It stays on until you run `/arch-off`. |
 | `/arch-off` | Turn the mod off for this project: no diagram updates, and the pane closes. History is kept. |
-| `/arch-on` | Turn it back on for this project |
 
-To start, ask Claude: *"draw the architecture of this project"*.
+The mod is off in every project until you turn it on, so it adds nothing to a conversation you don't want it in.
+
+To start, run `/arch-on`, then ask Claude: *"draw the architecture of this project"*.
 
 The pane opens on its own in terminals 144 columns or wider. `/arch` opens it at any width: beside the conversation from 110 columns, above the prompt below that.
 

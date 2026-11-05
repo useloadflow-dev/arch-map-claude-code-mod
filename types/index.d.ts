@@ -41,9 +41,15 @@ export type Diagram = {
 export type Explanation = { status: 'loading' | 'done' | 'error'; text: string }
 
 /** What $.store keeps per project root. */
-export type ProjectRecord = { enabled: boolean; history: Diagram[] }
+export type ProjectRecord = { optedIn: boolean; history: Diagram[] }
 
 declare module 'claude-code' {
+  // The mod's own tool: registered at run time, so generated types only list it
+  // when it was connected as they were written. `version` is set by the mod.
+  interface McpToolInputs {
+    'mcp__arch-map__update_architecture': Omit<Diagram, 'version'>
+  }
+
   interface PluginState {
     'arch-map': {
       /** v0.1 kept one diagram; read once to seed history. */

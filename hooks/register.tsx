@@ -28,7 +28,7 @@ const history = atom({ plugin: 'arch-map', key: 'history' } as const, [], {
 const viewing = atom({ plugin: 'arch-map', key: 'viewing' } as const, null, {
   shape: 'viewing-1',
 })
-const enabled = atom({ plugin: 'arch-map', key: 'enabled' } as const, true, {
+const enabled = atom({ plugin: 'arch-map', key: 'enabled' } as const, false, {
   shape: 'enabled-1',
 })
 // True once the person closes the pane: updates then stop reopening it.
@@ -325,7 +325,9 @@ const projectKey = async ($: EngineInterface) => `project:${await $.session.root
 async function loadProject($: EngineInterface): Promise<ProjectRecord> {
   const raw = (await $.store.get(await projectKey($))) as Partial<ProjectRecord> | undefined
   return {
-    enabled: raw?.enabled !== false,
+    // Off until the person runs /arch-on here. Not read from the old `enabled` field:
+    // saving a diagram wrote `enabled: true` whether or not anyone chose it.
+    optedIn: raw?.optedIn === true,
     history: Array.isArray(raw?.history) ? raw.history : [],
   }
 }
@@ -371,9 +373,9 @@ export const register: Register = on => {
     }
     if (old) await update($, legacy, () => null)
     await update($, history, () => list)
-    await update($, enabled, () => project.enabled)
+    await update($, enabled, () => project.optedIn)
 
-    if (project.enabled && list.length > 0 && !(await read($, dismissed)))
+    if (project.optedIn && list.length > 0 && !(await read($, dismissed)))
       void $.ui.open({ id: PANE, title: TITLE })
 
     return next(e)
@@ -401,7 +403,7 @@ export const register: Register = on => {
   })
 
   on('command.run', { command: 'arch-on' }, async $ => {
-    await saveProject($, { enabled: true })
+    await saveProject($, { optedIn: true })
     await update($, enabled, () => true)
     await update($, dismissed, () => false)
     await $.ui.open({ id: PANE, title: TITLE })
@@ -412,7 +414,7 @@ export const register: Register = on => {
   })
 
   on('command.run', { command: 'arch-off' }, async $ => {
-    await saveProject($, { enabled: false })
+    await saveProject($, { optedIn: false })
     await update($, enabled, () => false)
     if (await isPaneOpen($)) await $.ui.close({ id: PANE })
     return {
@@ -428,7 +430,7 @@ export const register: Register = on => {
   on('tool.call', { tool: FULL_TOOL }, async ($, e) => {
     if (!(await read($, enabled)))
       return {
-        result: 'The architecture map is off for this project (the person ran /arch-off). Do not call this tool.',
+        result: 'The architecture map is off for this project; the person turns it on with /arch-on. Do not call this tool.',
         isError: true,
       }
 
@@ -467,7 +469,7 @@ export const register: Register = on => {
       return (
         <Box flexDirection="column" gap={1}>
           <Text weight="semibold">Architecture map is off for this project</Text>
-          <Text dimColor>/arch-on turns it back on. Saved versions are kept.</Text>
+          <Text dimColor>/arch-on turns it on. Saved versions are kept.</Text>
         </Box>
       )
     }
