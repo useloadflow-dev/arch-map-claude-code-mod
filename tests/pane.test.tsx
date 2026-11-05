@@ -3,6 +3,7 @@ import { expect, test } from 'claude-code/testing'
 const ROOT = '/proj'
 const KEY = `project:${ROOT}`
 const TOOL = 'mcp__arch-map__update_architecture'
+const USAGE = { input_tokens: 1, output_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }
 
 const PANE = {
   plugin: 'arch-map',
@@ -54,7 +55,7 @@ const V2 = {
   lesson: { concept: 'Caching', explanation: 'Keep hot reads close.' },
 }
 
-function engine(on: any, store: Record<string, unknown> = {}) {
+function engine(on: any, store: Record<string, unknown> = { [KEY]: { optedIn: true, history: [] } }) {
   on('store.get', (_: unknown, e: any) => ({ value: store[e.key] }))
   on('store.set', (_: unknown, e: any) => {
     store[e.key] = JSON.parse(JSON.stringify(e.value))
@@ -107,8 +108,8 @@ test('versions are kept, diffed and stepped through', async ($, on) => {
 
 test('history is saved per project and loaded next session', async ($, on) => {
   const saved = {
-    [KEY]: { enabled: true, history: [{ ...V1, version: 7 }] },
-    'project:/other': { enabled: true, history: [{ ...V2, title: 'Other', version: 1 }] },
+    [KEY]: { optedIn: true, history: [{ ...V1, version: 7 }] },
+    'project:/other': { optedIn: true, history: [{ ...V2, title: 'Other', version: 1 }] },
   }
   const store: Record<string, unknown> = saved
   engine(on, store)
@@ -125,12 +126,12 @@ test('history is saved per project and loaded next session', async ($, on) => {
 })
 
 test('/arch-off turns it off for this project only', async ($, on) => {
-  const store: Record<string, unknown> = {}
+  const store: Record<string, unknown> = { [KEY]: { optedIn: true, history: [] } }
   engine(on, store)
   await start($)
   const off = await $.command.run({ command: 'arch-off' } as any)
   expect(String((off as any).text)).toContain('off for this project')
-  expect((store[KEY] as any).enabled).toBe(false)
+  expect((store[KEY] as any).optedIn).toBe(false)
 
   const refused = await $.tool.call({ tool: TOOL, ...V1 } as any)
   expect((refused as any).isError).toBe(true)
@@ -140,9 +141,46 @@ test('/arch-off turns it off for this project only', async ($, on) => {
   await ui.unmount()
 
   await $.command.run({ command: 'arch-on' } as any)
-  expect((store[KEY] as any).enabled).toBe(true)
+  expect((store[KEY] as any).optedIn).toBe(true)
   const ok = await $.tool.call({ tool: TOOL, ...V1 } as any)
   expect((ok as any).isError).toBeUndefined()
+})
+
+test('a new project starts off: the tool is refused and the pane says how to turn it on', async ($, on) => {
+  engine(on, {})
+  await start($)
+  const refused = await $.tool.call({ tool: TOOL, ...V1 } as any)
+  expect((refused as any).isError).toBe(true)
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /is off for this project/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /\/arch-on turns it on/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('a project saved under the old default starts off and keeps its diagrams', async ($, on) => {
+  const store: Record<string, unknown> = { [KEY]: { enabled: true, history: [{ ...V1, version: 7 }] } }
+  engine(on, store)
+  await start($)
+  const refused = await $.tool.call({ tool: TOOL, ...V2 } as any)
+  expect((refused as any).isError).toBe(true)
+
+  const r = await $.command.run({ command: 'arch-on' } as any)
+  expect(String((r as any).text)).toContain('1 saved version')
+  expect((store[KEY] as any).history[0].version).toBe(7)
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /^v7$/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('/arch-on lasts: the next session in that project starts on', async ($, on) => {
+  const store: Record<string, unknown> = {}
+  engine(on, store)
+  await start($)
+  await $.command.run({ command: 'arch-on' } as any)
+  await start($)
+  const ok = await $.tool.call({ tool: TOOL, ...V1 } as any)
+  expect((ok as any).isError).toBeUndefined()
+  expect((store[KEY] as any).optedIn).toBe(true)
 })
 
 test('a bad edge is refused', async ($, on) => {
@@ -164,7 +202,7 @@ test('clicking a part explains it once, then from cache', async ($, on) => {
   on('model.complete', (_: unknown, e: any) => {
     calls++
     asked = String(e.prompt)
-    return { value: { isAnswered: true, text: "Why it's here: it stores the todos.", usage: {} } }
+    return { value: { isAnswered: true, text: "Why it's here: it stores the todos.", usage: USAGE } }
   })
   await start($)
   await $.tool.call({ tool: TOOL, ...V1 } as any)
